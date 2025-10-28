@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- Allow local IP communication (HTTP or HTTPS) -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">10.37.4.199</domain>
+  </domain-config>
+  <!-- Optional: also allow localhost if you ever use it -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">localhost</domain>
+  </domain-config>
+</network-security-config>

@@ -1,5 +1,10 @@
 {
   "appId": "com.deltion.rooster",
   "appName": "DeltionRoosterApp",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": ["10.37.4.199", "localhost"],
+    "cleartext": true,
+    "hostname": "localhost"
+  }
 }
