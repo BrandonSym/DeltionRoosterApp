@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DeltionRoosterApp</string>
+    <string name="title_activity_main">DeltionRoosterApp</string>
+    <string name="package_name">com.deltion.rooster</string>
+    <string name="custom_url_scheme">com.deltion.rooster</string>
+</resources>

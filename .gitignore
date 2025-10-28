@@ -1,0 +1,216 @@
+# Global OS
+####################
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~ 
+.nfs*
+
+# Editor/IDE
+####################
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider / IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains Rider caches
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+
+# Build outputs
+####################
+bin/
+obj/
+[Bb]uild/
+[Bb]in/
+[Bb]uilds/
+artifacts/
+out/
+dist/
+
+# NuGet / .NET
+####################
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+*.snupkg
+*.symbols.nupkg
+*.dotCover
+TestResults/
+*.cache
+*.log
+
+# ASP.NET Scaffolding
+.scaffolding/
+
+# Entity Framework
+*.edmx.sql
+*.dbmdl
+
+# User secrets
+secrets.json
+appsettings.*.json
+appsettings.*.Development.json
+*.pfx
+*.p12
+*.key
+*.pem
+
+# Runtime / published
+*.dll
+*.exe
+*.so
+*.dylib
+*.app
+*.appx
+*.msi
+publish/
+publish-output/
+
+# Logs, temp, caches
+####################
+*.log
+*.tlog
+*.tmp
+*.temp
+*.cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.seed
+
+# Package managers
+####################
+# Node
+node_modules/
+.npm/
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+venv/
+ENV/
+env/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.class
+.gradle/
+build/
+target/
+
+# Mobile / Xamarin / Unity
+####################
+# Xamarin
+*.userprefs
+*.nursery
+
+# Unity
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+UserSettings/
+*.csproj
+*.unityproj
+*.sln
+*.pidb
+*.booproj
+*.svd
+
+# Docker / containers
+####################
+docker-compose.override.yml
+.env
+docker-compose.*.yml
+
+# Certificates / keys / secrets
+####################
+*.pub
+*.pem
+*.key
+*.crt
+credentials
+credentials.json
+*.env
+.env.local
+.env.*.local
+.local.settings.json
+
+# Coverage / reports
+####################
+coverage/
+coverage.xml
+*.lcov
+.nyc_output/
+
+# Misc
+####################
+*.sqlite
+*.db
+*.bak
+*.orig
+*.rej
+*.sublime-workspace
+*.vagrant
+.vagrant/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Git hooks/temp
+####################
+hooks/*.sample
+*.patch
+
+# Ensure .gitignore itself remains tracked
+!.gitignore
