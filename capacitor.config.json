@@ -2,8 +2,11 @@
   "appId": "com.deltion.rooster",
   "appName": "DeltionRoosterApp",
   "webDir": "dist",
+  "andrpoid": {
+    "allowMixedContent": true
+  },
   "server": {
-    "allowNavigation": ["10.37.4.199", "localhost"],
+    "allowNavigation": ["*"],
     "cleartext": true,
     "hostname": "localhost"
   }

@@ -89,8 +89,8 @@ const tempDate = ref(selectedDate.value)
 async function fetchOptions() {
   try {
     const [groupsRes, roomsRes] = await Promise.all([
-      fetch("http://10.37.4.199:9000/groups").then(r => r.json()),
-      fetch("http://10.37.4.199:9000/rooms").then(r => r.json()),
+      fetch("https://tradition-vault-save-transparent.trycloudflare.com/groups").then(r => r.json()), // this url will always change when a new cloudflare tunnel is made
+      fetch("https://tradition-vault-save-transparent.trycloudflare.com/rooms").then(r => r.json()),
     ]);
     let groupsArr = Array.isArray(groupsRes.data) ? groupsRes.data : [];
     let roomsArr = Array.isArray(roomsRes.data) ? roomsRes.data : [];

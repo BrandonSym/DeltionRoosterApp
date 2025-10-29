@@ -2,7 +2,7 @@
 <network-security-config>
   <!-- Allow local IP communication (HTTP or HTTPS) -->
   <domain-config cleartextTrafficPermitted="true">
-    <domain includeSubdomains="true">10.37.4.199</domain>
+    <domain includeSubdomains="true">192.168.1.22</domain>
   </domain-config>
   <!-- Optional: also allow localhost if you ever use it -->
   <domain-config cleartextTrafficPermitted="true">
