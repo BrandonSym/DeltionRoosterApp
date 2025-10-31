@@ -38,7 +38,7 @@
               gridTemplateRows: `repeat(${rosterPerDayGrid[dIndex].slots.length}, var(--slot-height))`,
               gridTemplateColumns: `repeat(${rosterPerDayGrid[dIndex].columns}, minmax(var(--col-min), var(--col-max)))`
             }"
-            >
+          >
             <!-- background stripes per row (span all columns) -->
             <template v-for="(slot, i) in rosterPerDayGrid[dIndex].slots" :key="'bg-'+i">
               <div
@@ -60,7 +60,6 @@
                 minWidth: '0'
               }"
             >
-            {{console.log(lesson)}}
               <div class="text-deltionBlue-900 font-semibold text-base">
                 {{ lesson.v }}
               </div>
@@ -86,8 +85,10 @@ import DayDropdown from './DayDropdown.vue'
 interface TimeSlot {
   id: number
   nr: number
-  st: number
+  st: number // timestamp or minutes
   et: number
+  stMin?: number // computed minutes from midnight
+  etMin?: number
 }
 
 interface Lesson {
@@ -98,6 +99,8 @@ interface Lesson {
   t: string
   r: string
   g: string
+  startMin?: number // computed
+  endMin?: number   // computed
 }
 
 interface Day {
@@ -114,9 +117,8 @@ const props = defineProps<{
   timeSlots: TimeSlot[]
   orderedScheduleData: Day[]
 }>()
-/* ---------- helpers ---------- */
 
-// merge lessons that have same v+r and overlap/are contiguous in time
+/* ---------- helpers ---------- */
 function mergeSameLessons(lessons: Lesson[] = []) {
   if (!lessons.length) return []
   const sorted = [...lessons].sort((a, b) => a.st - b.st || a.et - b.et)
@@ -125,9 +127,7 @@ function mergeSameLessons(lessons: Lesson[] = []) {
   for (const l of sorted) {
     const last = merged[merged.length - 1]
     if (last && last.v === l.v && last.r === l.r && l.st <= last.et) {
-      // overlap or contiguous — extend end time
       last.et = Math.max(last.et, l.et)
-      // optionally merge other fields (t/g) if needed
     } else {
       merged.push({ ...l })
     }
@@ -136,46 +136,37 @@ function mergeSameLessons(lessons: Lesson[] = []) {
   return merged
 }
 
-/*
- Build a grid model:
-  - slots: the day's time slots (rows)
-  - lessons: each with rowStart (1-based), rowSpan, colStart
-  - columns: number of columns required to avoid overlaps
-*/
 function buildRosterGridForDay(day: Day) {
   const slots = (day.hours || []).map(s => ({
     ...s,
-    stMin: new Date(s.st).getHours() * 60 + new Date(s.st).getMinutes(),
-    etMin: new Date(s.et).getHours() * 60 + new Date(s.et).getMinutes(),
+    stMin: s.st, // assume st/et are already minutes since midnight; adjust if timestamps
+    etMin: s.et,
   }))
 
-  if (!slots.length) return { slots: [], columns: 0, lessons: [] as any[] }
+  if (!slots.length) return { slots: [], columns: 0, lessons: [] as Lesson[] }
 
-  const merged = mergeSameLessons(day.items || []);
+  const merged = mergeSameLessons(day.items || []).map(ls => ({
+    ...ls,
+    startMin: ls.st,
+    endMin: ls.et
+  }))
 
-  // compute start index & span for each lesson (based on which slots it overlaps)
   const withSlots = merged
     .map(ls => {
       const startIndex = slots.findIndex(
-        s => ls.startMin < s.etMin && ls.endMin > s.stMin
+        s => ls.startMin! < s.etMin! && ls.endMin! > s.stMin!
       )
       const span = slots.filter(
-        s => ls.startMin < s.etMin && ls.endMin > s.stMin
+        s => ls.startMin! < s.etMin! && ls.endMin! > s.stMin!
       ).length
       return { ...ls, startIndex, span }
     })
     .filter(x => x.startIndex !== -1)
 
-  // If no mapped lessons, return minimal grid
   if (!withSlots.length) {
-    return {
-      slots,
-      columns: 1,
-      lessons: [],
-    }
+    return { slots, columns: 1, lessons: [] }
   }
 
-  // --- Build per-slot concurrency counts ---
   const slotConcurrency = new Array(slots.length).fill(0)
   for (const L of withSlots) {
     for (let i = L.startIndex; i < L.startIndex + L.span; i++) {
@@ -183,10 +174,9 @@ function buildRosterGridForDay(day: Day) {
     }
   }
 
-  // --- sort & column packing (existing algorithm) ---
   withSlots.sort((a, b) => a.startIndex - b.startIndex || b.span - a.span)
 
-  const columnsEnd: number[] = [] // last occupied row-end index for each column
+  const columnsEnd: number[] = []
   const placed: any[] = []
 
   for (const L of withSlots) {
@@ -212,20 +202,18 @@ function buildRosterGridForDay(day: Day) {
       rowStart: L.startIndex + 1,
       rowSpan: L.span,
       colStart: placedCol + 1,
-      stack: placedCol, // 0-based stack index (useful if you want to position within the column)
+      stack: placedCol,
       _uid: `${L.v}-${L.r}-${L.st}-${L.et}-${Math.random().toString(36).slice(2,8)}`
     })
   }
 
-  // --- NEW: compute per-lesson maximum concurrency across its covered slots ---
   for (const L of placed) {
     const start = L.startIndex
-    const end = L.startIndex + L.span // exclusive
+    const end = L.startIndex + L.span
     const maxConcurrent = Math.max(...slotConcurrency.slice(start, end))
-    L.rowConcurrentMax = maxConcurrent // e.g. 1, 2, 3...
+    L.rowConcurrentMax = maxConcurrent
   }
 
-  // columns should reflect the maximum concurrency seen (defensive)
   const maxConcurrencyOverall = Math.max(...slotConcurrency, 0)
   const columns = Math.max(1, columnsEnd.length, maxConcurrencyOverall)
 
@@ -236,27 +224,19 @@ function buildRosterGridForDay(day: Day) {
   }
 }
 
-/* ---------- computed mapping for all days ---------- */
 const rosterPerDayGrid = computed(() =>
   props.orderedScheduleData.map((day) => buildRosterGridForDay(day))
 )
-
-/* ---------- CSS variables that control sizing (tweak as needed) ---------- */
-// these are available in JS/TS if you want to compute styles dynamically.
-// By default we rely on CSS variables set in the style section below.
 </script>
 
 <style>
 :root {
-  /* slot height matches your h-28 (7rem) */
   --slot-height: 7rem;
-  /* column sizing: min / max width for a lesson column */
   --col-min: dvw;
   --col-max: 14rem;
   --col-width: var(--col-min);
 }
 
-/* hide scrollbar for horizontal scroller (your class already does that) */
 .remove-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
