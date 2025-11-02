@@ -56,10 +56,9 @@
             <ul class="py-1">
               <li><router-link to="/" class="block px-4 py-2 hover:bg-gray-100">Home</router-link></li>
               <li><router-link to="/profiel" class="block px-4 py-2 hover:bg-gray-100">Profiel</router-link></li>
-              <li><router-link to="/instellingen" class="block px-4 py-2 hover:bg-gray-100">Instellingen</router-link>
-              </li>
-              <li><router-link to="/login" class="block px-4 py-2 hover:bg-gray-100 text-red-500">Login</router-link>
-              </li>
+              <li><router-link to="/instellingen" class="block px-4 py-2 hover:bg-gray-100">Instellingen</router-link></li>
+              <li><router-link to="/login" class="block px-4 py-2 hover:bg-gray-100 text-red-500">Login</router-link></li>
+              <li><router-link to="/mapmaker" class="block px-4 py-2 hover:bg-gray-100">MapMaker</router-link></li>
             </ul>
           </div>
       </div>
