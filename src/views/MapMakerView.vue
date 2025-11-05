@@ -13,26 +13,37 @@
 
         <!-- Controls -->
         <div class="controls">
-            <button @click="startAddingRoom" class="btn-primary" :disabled="isDrawingRoom || isDrawingDoor">Add
-                Room</button>
-            <button @click="startAddingDoor" class="btn-primary" :disabled="isDrawingRoom || isDrawingDoor">Add
-                Door/Hallway</button>
-            <button @click="cancelDrawing" class="btn-secondary" v-if="isDrawingRoom || isDrawingDoor">Cancel</button>
-            <button @click="finishDoor" class="btn-secondary" v-if="isDrawingDoor && currentPoints.length > 1">Finish
-                Door/Hallway</button>
+            <button @click="startAddingRoom" class="btn-primary"
+                :disabled="isDrawingRoom || isDrawingDoor || isDrawingWalkway">Add Room</button>
+            <button @click="startAddingDoor" class="btn-primary"
+                :disabled="isDrawingRoom || isDrawingDoor || isDrawingWalkway">Add Door</button>
+            <button @click="startAddingWalkway" class="btn-primary"
+                :disabled="isDrawingRoom || isDrawingDoor || isDrawingWalkway">Add Walkway</button>
+
+            <button @click="cancelDrawing" class="btn-secondary"
+                v-if="isDrawingRoom || isDrawingDoor || isDrawingWalkway">Cancel</button>
+            <button @click="finishDoor" class="btn-secondary" v-if="isDrawingDoor && currentPoints.length === 2">Finish
+                Door</button>
+            <button @click="finishWalkway" class="btn-secondary"
+                v-if="isDrawingWalkway && currentPoints.length > 1">Finish Walkway</button>
+
             <button @click="exportMap" class="btn-secondary">Export JSON</button>
         </div>
 
         <!-- Drawing Instructions -->
-        <div v-if="isDrawingRoom || isDrawingDoor" class="drawing-instructions">
+        <div v-if="isDrawingRoom || isDrawingDoor || isDrawingWalkway" class="drawing-instructions">
             <p v-if="isDrawingRoom">Click grid points to draw a room. Click first point to close shape.</p>
-            <p v-if="isDrawingDoor">Click points to draw a door/hallway. Click "Finish Door/Hallway" when done.</p>
+            <p v-if="isDrawingDoor">Click exactly 2 points to draw a door. Click "Finish Door" when done.</p>
+            <p v-if="isDrawingWalkway">Click points to draw walkway centers (walkways run through middle of tiles).
+                Click "Finish Walkway" when done.</p>
             <p>Points: {{ currentPoints.length }}</p>
         </div>
 
         <!-- Canvas -->
         <div class="map-container">
-            <canvas ref="canvas" @click="handleCanvasClick" @mousemove="handleMouseMove" class="map-canvas"></canvas>
+            <!-- Bind width/height to ensure canvas internal pixel size matches what we calculate -->
+            <canvas ref="canvas" :width="CANVAS_WIDTH" :height="CANVAS_HEIGHT" @click="handleCanvasClick"
+                @mousemove="handleMouseMove" class="map-canvas"></canvas>
         </div>
 
         <!-- Rooms List -->
@@ -49,9 +60,9 @@
                 <div class="room-details">{{ room.points.length }} points</div>
             </div>
 
-            <h2>Doors/Hallways</h2>
+            <h2>Doors</h2>
             <div v-if="currentFloorDoors.length === 0" class="empty-state">
-                No doors/hallways yet.
+                No doors yet.
             </div>
             <div v-for="door in currentFloorDoors" :key="door.id" class="room-card">
                 <div class="room-header">
@@ -61,6 +72,18 @@
                     <button @click="deleteDoor(door.id)" class="btn-delete">Delete</button>
                 </div>
                 <div class="room-details">{{ door.points.length }} points</div>
+            </div>
+
+            <h2>Walkways</h2>
+            <div v-if="currentFloorWalkways.length === 0" class="empty-state">
+                No walkways yet.
+            </div>
+            <div v-for="w in currentFloorWalkways" :key="w.id" class="room-card">
+                <div class="room-header">
+                    <div class="room-name" :style="{ borderLeft: `4px solid ${w.color}` }">Walkway {{ w.id }}</div>
+                    <button @click="deleteWalkway(w.id)" class="btn-delete">Delete</button>
+                </div>
+                <div class="room-details">{{ w.points.length }} points</div>
             </div>
         </div>
 
@@ -81,7 +104,7 @@
         <!-- Door Modal -->
         <div v-if="showDoorModal" class="modal-overlay" @click="closeDoorModal">
             <div class="modal" @click.stop>
-                <h2>Select Rooms for Door/Hallway</h2>
+                <h2>Select Rooms for Door</h2>
                 <div class="modal-content">
                     <label>From Room:</label>
                     <select v-model="selectedFromRoom" class="form-input">
@@ -96,7 +119,6 @@
                     <label>Type:</label>
                     <select v-model="selectedDoorType" class="form-input">
                         <option value="door">Door</option>
-                        <option value="hallway">Hallway</option>
                     </select>
                 </div>
                 <div class="modal-actions">
@@ -115,17 +137,19 @@ import { defineComponent, ref, computed, onMounted, watch, nextTick } from 'vue'
 import { StorageService, type Room, type Door } from '@/services/storage'
 
 interface Point { x: number; y: number }
+interface Walkway { id: string; floor: string; points: Point[]; color: string }
 
 export default defineComponent({
     setup() {
         const canvas = ref<HTMLCanvasElement | null>(null)
-        const selectedFloor = ref('ground')
         const GRID_SIZE = 50
         const CANVAS_WIDTH = 1000
         const CANVAS_HEIGHT = 800
 
+        const selectedFloor = ref('ground')
         const isDrawingRoom = ref(false)
         const isDrawingDoor = ref(false)
+        const isDrawingWalkway = ref(false)
         const currentPoints = ref<Point[]>([])
         const mousePos = ref<Point | null>(null)
 
@@ -136,48 +160,52 @@ export default defineComponent({
         const showDoorModal = ref(false)
         const selectedFromRoom = ref<string | null>(null)
         const selectedToRoom = ref<string | null>(null)
-        const selectedDoorType = ref<'door' | 'hallway'>('hallway')
+        const selectedDoorType = ref<'door'>('door')
 
         const floors = computed(() => StorageService.getFloors())
-        const currentFloorName = computed(() => floors.value.find(f => f.id === selectedFloor.value)?.name || '')
+        const currentFloorName = computed(() => floors.value.find(f => f.id === selectedFloor.value)?.name || selectedFloor.value)
         const currentFloorRooms = ref<Room[]>([])
         const currentFloorDoors = ref<Door[]>([])
+        const currentFloorWalkways = ref<Walkway[]>([])
 
         const reloadData = () => {
             currentFloorRooms.value = StorageService.getRooms(selectedFloor.value)
             currentFloorDoors.value = StorageService.getDoors(selectedFloor.value)
+            try { currentFloorWalkways.value = StorageService.getWalkways ? StorageService.getWalkways(selectedFloor.value) : [] } catch { currentFloorWalkways.value = [] }
             nextTick(render)
         }
 
         const drawGrid = (ctx: CanvasRenderingContext2D) => {
             ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
             ctx.strokeStyle = '#ddd'
+            ctx.lineWidth = 1
             for (let x = 0; x <= CANVAS_WIDTH; x += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_HEIGHT); ctx.stroke() }
             for (let y = 0; y <= CANVAS_HEIGHT; y += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_WIDTH, y); ctx.stroke() }
         }
 
         const drawRooms = (ctx: CanvasRenderingContext2D) => {
             currentFloorRooms.value.forEach(room => {
-                if (room.points.length < 3) return
-                ctx.fillStyle = room.color + '40'
-                ctx.strokeStyle = room.color
+                if (!room.points || room.points.length < 3) return
+                ctx.fillStyle = (room.color || '#93c5fd') + '40'
+                ctx.strokeStyle = room.color || '#3b82f6'
                 ctx.lineWidth = 2
                 ctx.beginPath()
                 ctx.moveTo(room.points[0].x * GRID_SIZE, room.points[0].y * GRID_SIZE)
                 room.points.forEach(p => ctx.lineTo(p.x * GRID_SIZE, p.y * GRID_SIZE))
                 ctx.closePath()
-                ctx.fill(); ctx.stroke()
-                // room name
+                ctx.fill()
+                ctx.stroke()
                 const cx = room.points.reduce((s, p) => s + p.x, 0) / room.points.length * GRID_SIZE
                 const cy = room.points.reduce((s, p) => s + p.y, 0) / room.points.length * GRID_SIZE
-                ctx.fillStyle = '#000'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(room.name, cx, cy)
+                ctx.fillStyle = '#000'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'
+                ctx.fillText(room.name, cx, cy)
             })
         }
 
         const drawDoors = (ctx: CanvasRenderingContext2D) => {
             currentFloorDoors.value.forEach(door => {
-                if (door.points.length < 2) return
-                ctx.strokeStyle = door.color
+                if (!door.points || door.points.length < 2) return
+                ctx.strokeStyle = door.color || '#f59e0b'
                 ctx.lineWidth = 3
                 ctx.beginPath()
                 ctx.moveTo(door.points[0].x * GRID_SIZE, door.points[0].y * GRID_SIZE)
@@ -186,14 +214,28 @@ export default defineComponent({
             })
         }
 
+        const drawWalkways = (ctx: CanvasRenderingContext2D) => {
+            currentFloorWalkways.value.forEach(w => {
+                if (!w.points || w.points.length < 2) return
+                ctx.strokeStyle = w.color || '#06b6d4'
+                ctx.lineWidth = 3
+                ctx.beginPath()
+                ctx.moveTo(w.points[0].x * GRID_SIZE, w.points[0].y * GRID_SIZE)
+                w.points.forEach(p => ctx.lineTo(p.x * GRID_SIZE, p.y * GRID_SIZE))
+                ctx.stroke()
+            })
+        }
+
         const drawCurrentShape = (ctx: CanvasRenderingContext2D) => {
-            if (currentPoints.value.length === 0) return
+            if (currentPoints.value.length === 0 && !mousePos.value) return
             ctx.strokeStyle = '#3b82f6'; ctx.fillStyle = '#3b82f640'; ctx.lineWidth = 2
-            ctx.beginPath()
-            ctx.moveTo(currentPoints.value[0].x * GRID_SIZE, currentPoints.value[0].y * GRID_SIZE)
-            currentPoints.value.forEach(p => ctx.lineTo(p.x * GRID_SIZE, p.y * GRID_SIZE))
-            if (mousePos.value) ctx.lineTo(mousePos.value.x * GRID_SIZE, mousePos.value.y * GRID_SIZE)
-            ctx.stroke()
+            if (currentPoints.value.length > 0) {
+                ctx.beginPath()
+                ctx.moveTo(currentPoints.value[0].x * GRID_SIZE, currentPoints.value[0].y * GRID_SIZE)
+                currentPoints.value.forEach(p => ctx.lineTo(p.x * GRID_SIZE, p.y * GRID_SIZE))
+                if (mousePos.value) ctx.lineTo(mousePos.value.x * GRID_SIZE, mousePos.value.y * GRID_SIZE)
+                ctx.stroke()
+            }
             currentPoints.value.forEach((p, i) => {
                 ctx.fillStyle = i === 0 ? '#ef4444' : '#3b82f6'
                 ctx.beginPath(); ctx.arc(p.x * GRID_SIZE, p.y * GRID_SIZE, 5, 0, Math.PI * 2); ctx.fill()
@@ -202,92 +244,156 @@ export default defineComponent({
 
         const render = () => {
             if (!canvas.value) return
-            const ctx = canvas.value.getContext('2d'); if (!ctx) return
+            const ctx = canvas.value.getContext('2d')
+            if (!ctx) return
             drawGrid(ctx)
+            drawWalkways(ctx)
             drawRooms(ctx)
             drawDoors(ctx)
             drawCurrentShape(ctx)
         }
 
-        const screenToGrid = (x: number, y: number): Point => {
+        const screenToCanvasPixel = (clientX: number, clientY: number) => {
             if (!canvas.value) return { x: 0, y: 0 }
             const rect = canvas.value.getBoundingClientRect()
-
-            // compute scaling factor if CSS scaled canvas
             const scaleX = canvas.value.width / rect.width
             const scaleY = canvas.value.height / rect.height
+            const x = (clientX - rect.left) * scaleX
+            const y = (clientY - rect.top) * scaleY
+            return { x, y }
+        }
 
-            return {
-                x: Math.round((x - rect.left) * scaleX / GRID_SIZE),
-                y: Math.round((y - rect.top) * scaleY / GRID_SIZE)
+        const snapToGridIntersection = (clientX: number, clientY: number): Point => {
+            const pix = screenToCanvasPixel(clientX, clientY)
+            return { x: Math.round(pix.x / GRID_SIZE), y: Math.round(pix.y / GRID_SIZE) }
+        }
+
+        const snapToGridCenter = (clientX: number, clientY: number): Point => {
+            const pix = screenToCanvasPixel(clientX, clientY)
+            const rawX = pix.x / GRID_SIZE
+            const rawY = pix.y / GRID_SIZE
+            const cx = Math.round(rawX - 0.5) + 0.5
+            const cy = Math.round(rawY - 0.5) + 0.5
+            return { x: cx, y: cy }
+        }
+
+        const isPointInPolygon = (pt: Point, poly: Point[]) => {
+            let inside = false
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y
+                const xj = poly[j].x, yj = poly[j].y
+                const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
+                    (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi)
+                if (intersect) inside = !inside
             }
+            return inside
         }
 
         const handleCanvasClick = (e: MouseEvent) => {
-            const point = screenToGrid(e.clientX, e.clientY)
             if (isDrawingRoom.value) {
+                const p = snapToGridIntersection(e.clientX, e.clientY)
                 if (currentPoints.value.length >= 3) {
                     const first = currentPoints.value[0]
-                    if (Math.hypot(first.x - point.x, first.y - point.y) < 0.5) { finishRoom(); return }
+                    const d = Math.hypot(p.x - first.x, p.y - first.y)
+                    if (d < 0.5) { showRoomModal.value = true; return }
                 }
-                currentPoints.value.push(point)
-            } else if (isDrawingDoor.value) {
-                currentPoints.value.push(point)
+                currentPoints.value.push(p); render(); return
             }
-            render()
+            if (isDrawingDoor.value) {
+                if (currentPoints.value.length >= 2) return
+                const p = snapToGridIntersection(e.clientX, e.clientY)
+                currentPoints.value.push(p); render(); return
+            }
+            if (isDrawingWalkway.value) {
+                const p = snapToGridCenter(e.clientX, e.clientY)
+                currentPoints.value.push(p); render(); return
+            }
+            const clickPt = snapToGridIntersection(e.clientX, e.clientY)
+            for (const r of currentFloorRooms.value) {
+                if (isPointInPolygon(clickPt, r.points)) {
+                    alert(`Room: ${r.name}`)
+                    return
+                }
+            }
         }
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (!isDrawingRoom.value && !isDrawingDoor.value) return
-            mousePos.value = screenToGrid(e.clientX, e.clientY)
-            render()
+            if (isDrawingRoom.value) {
+                mousePos.value = snapToGridIntersection(e.clientX, e.clientY); render()
+            } else if (isDrawingDoor.value) {
+                mousePos.value = snapToGridIntersection(e.clientX, e.clientY); render()
+            } else if (isDrawingWalkway.value) {
+                mousePos.value = snapToGridCenter(e.clientX, e.clientY); render()
+            } else {
+                mousePos.value = null
+            }
         }
 
-        const startAddingRoom = () => { isDrawingRoom.value = true; currentPoints.value = []; mousePos.value = null }
-        const startAddingDoor = () => { isDrawingDoor.value = true; currentPoints.value = []; mousePos.value = null }
-        const cancelDrawing = () => { isDrawingRoom.value = false; isDrawingDoor.value = false; currentPoints.value = []; mousePos.value = null; render() }
+        const startAddingRoom = () => { isDrawingRoom.value = true; isDrawingDoor.value = false; isDrawingWalkway.value = false; currentPoints.value = []; mousePos.value = null }
+        const startAddingDoor = () => { isDrawingDoor.value = true; isDrawingRoom.value = false; isDrawingWalkway.value = false; currentPoints.value = []; mousePos.value = null }
+        const startAddingWalkway = () => { isDrawingWalkway.value = true; isDrawingRoom.value = false; isDrawingDoor.value = false; currentPoints.value = []; mousePos.value = null }
 
-        const finishRoom = () => { showRoomModal.value = true }
+        const cancelDrawing = () => { isDrawingRoom.value = false; isDrawingDoor.value = false; isDrawingWalkway.value = false; currentPoints.value = []; mousePos.value = null; render() }
+
         const saveRoom = () => {
             if (!customRoomName.value.trim()) return
+            const copyPoints = JSON.parse(JSON.stringify(currentPoints.value))
             StorageService.addRoom({
                 id: `room-${Date.now()}`,
-                name: customRoomName.value,
+                name: customRoomName.value.trim(),
                 floor: selectedFloor.value,
-                points: currentPoints.value,
-                color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+                points: copyPoints,
+                color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
                 isClassroom: false
             })
-            closeModal(); cancelDrawing(); reloadData()
+            closeModal()
+            cancelDrawing()
+            reloadData()
         }
         const closeModal = () => { showRoomModal.value = false; customRoomName.value = '' }
 
-        const finishDoor = () => { showDoorModal.value = true }
+        const finishDoor = () => {
+            if (currentPoints.value.length !== 2) { alert('Doors need exactly 2 points'); return }
+            selectedFromRoom.value = currentFloorRooms.value[0]?.id ?? null
+            selectedToRoom.value = currentFloorRooms.value[1]?.id ?? currentFloorRooms.value[0]?.id ?? null
+            showDoorModal.value = true
+        }
         const saveDoor = () => {
             if (!selectedFromRoom.value || !selectedToRoom.value) return
+            const copyPoints = JSON.parse(JSON.stringify(currentPoints.value))
             StorageService.addDoor({
                 id: `door-${Date.now()}`,
                 fromRoom: selectedFromRoom.value,
                 toRoom: selectedToRoom.value,
-                points: currentPoints.value,
-                type: selectedDoorType.value,
-                color: selectedDoorType.value === 'door' ? '#f59e0b' : '#10b981'
+                points: copyPoints,
+                type: 'door',
+                color: '#f59e0b'
             })
-            closeDoorModal(); cancelDrawing(); reloadData()
+            closeDoorModal()
+            cancelDrawing()
+            reloadData()
         }
         const closeDoorModal = () => {
             showDoorModal.value = false
             selectedFromRoom.value = null
             selectedToRoom.value = null
-            selectedDoorType.value = 'hallway'
+            selectedDoorType.value = 'door'
         }
 
-        const deleteRoom = (id: string) => {
-            if (confirm('Delete room?')) { StorageService.deleteRoom(id); reloadData() }
+        const finishWalkway = () => {
+            if (currentPoints.value.length < 2) { alert('Walkway needs at least 2 points'); return }
+            const copyPoints = JSON.parse(JSON.stringify(currentPoints.value))
+            try { StorageService.addWalkway({ id: `walkway-${Date.now()}`, floor: selectedFloor.value, points: copyPoints, color: '#06b6d4' }) }
+            catch (err) { console.error('Failed to save walkway', err) }
+            cancelDrawing()
+            reloadData()
         }
-        const deleteDoor = (id: string) => {
-            if (confirm('Delete door?')) { StorageService.deleteDoor(id); reloadData() }
-        }
+
+        const deleteRoom = (id: string) => { if (!confirm('Delete room?')) return; StorageService.deleteRoom(id); reloadData() }
+        const deleteDoor = (id: string) => { if (!confirm('Delete door?')) return; StorageService.deleteDoor(id); reloadData() }
+        const deleteWalkway = (id: string) => { if (!confirm('Delete walkway?')) return; StorageService.deleteWalkway(id); reloadData() }
+
+        const getRoomNameById = (id: string) => currentFloorRooms.value.find(r => r.id === id)?.name || id
 
         const exportMap = () => {
             const data = StorageService.exportData()
@@ -300,27 +406,63 @@ export default defineComponent({
             URL.revokeObjectURL(url)
         }
 
-        const getRoomNameById = (id: string) => StorageService.getRooms(selectedFloor.value).find(r => r.id === id)?.name || id
-
         onMounted(() => {
-            if (canvas.value) { canvas.value.width = CANVAS_WIDTH; canvas.value.height = CANVAS_HEIGHT; reloadData() }
+            if (canvas.value) {
+                canvas.value.width = CANVAS_WIDTH
+                canvas.value.height = CANVAS_HEIGHT
+            }
+            reloadData()
         })
+
         watch(selectedFloor, () => reloadData())
 
         return {
-            canvas, selectedFloor, floors, currentFloorName, currentFloorRooms, currentFloorDoors,
-            isDrawingRoom, isDrawingDoor, currentPoints, mousePos,
-            showRoomModal, customRoomName, canSaveRoom,
-            showDoorModal, selectedFromRoom, selectedToRoom, selectedDoorType,
-            startAddingRoom, startAddingDoor, cancelDrawing, handleCanvasClick, handleMouseMove,
-            finishRoom, saveRoom, closeModal,
-            finishDoor, saveDoor, closeDoorModal,
-            deleteRoom, deleteDoor, exportMap,
+            canvas,
+            selectedFloor,
+            CANVAS_WIDTH,
+            CANVAS_HEIGHT,
+            GRID_SIZE,
+            floors,
+            currentFloorName,
+            currentFloorRooms,
+            currentFloorDoors,
+            currentFloorWalkways,
+            isDrawingRoom,
+            isDrawingDoor,
+            isDrawingWalkway,
+            currentPoints,
+            mousePos,
+            showRoomModal,
+            customRoomName,
+            canSaveRoom,
+            showDoorModal,
+            selectedFromRoom,
+            selectedToRoom,
+            selectedDoorType,
+            startAddingRoom,
+            startAddingDoor,
+            startAddingWalkway,
+            cancelDrawing,
+            handleCanvasClick,
+            handleMouseMove,
+            finishRoom: () => { showRoomModal.value = true },
+            saveRoom,
+            closeModal,
+            finishDoor,
+            saveDoor,
+            closeDoorModal,
+            finishWalkway,
+            deleteRoom,
+            deleteDoor,
+            deleteWalkway,
+            exportMap,
             getRoomNameById
         }
     }
 })
 </script>
+
+
 
 <style scoped>
 /* same styles as your previous grid version */
@@ -441,6 +583,7 @@ export default defineComponent({
     border: 1px solid #ddd;
     cursor: crosshair;
     display: block;
+    /* do not force width:100% here — width/height are handled with attributes */
 }
 
 .rooms-list {

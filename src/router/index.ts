@@ -1,3 +1,4 @@
+import type { RouteRecordRaw } from 'vue-router';
 import { createRouter, createWebHistory } from "vue-router";
 import MainLayout from "../layouts/MainLayout.vue";
 
@@ -8,6 +9,7 @@ import Roster from "../components/Roster.vue";
 import Profile from "../components/Profile.vue";
 import Settings from "../components/Settings.vue";
 import NotFound from "../components/NotFound.vue";
+import MapMakerView from "@/views/MapMakerView.vue";
 
 // Define routes
 const routes: RouteRecordRaw[] = [
@@ -19,6 +21,7 @@ const routes: RouteRecordRaw[] = [
       { path: "rooster", name: "Rooster", component: Roster },
       { path: "profiel", name: "Profile", component: Profile },
       { path: "instellingen", name: "Settings", component: Settings },
+      { path: "mapmaker", name: "MapMaker", component: MapMakerView },
     ],
   },
   {

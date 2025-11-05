@@ -1,7 +1,14 @@
 import { WifiPlugin } from '@/services/wifi-plugin';
 export type Point = { x: number; y: number; distance: number };
 
-export function trilaterate3(A: Point | undefined, B: Point | undefined, C: Point | undefined): { x: number; y: number } | null {
+// -------------------------
+// 🔹 Trilateration functions
+// -------------------------
+export function trilaterate3(
+  A: Point | undefined,
+  B: Point | undefined,
+  C: Point | undefined
+): { x: number; y: number } | null {
   if (!A || !B || !C) return null;
   const ax = A.x, ay = A.y, ad = A.distance;
   const bx = B.x, by = B.y, bd = B.distance;
@@ -31,13 +38,21 @@ export function solveMultilateration(points: Point[]): { x: number; y: number } 
     const p = points[i];
     const ai = 2 * (ref.x - p.x);
     const bi = 2 * (ref.y - p.y);
-    const ci = (ref.x * ref.x - p.x * p.x) + (ref.y * ref.y - p.y * p.y) + (p.distance * p.distance - ref.distance * ref.distance);
+    const ci =
+      ref.x * ref.x -
+      p.x * p.x +
+      (ref.y * ref.y - p.y * p.y) +
+      (p.distance * p.distance - ref.distance * ref.distance);
     rows.push([ai, bi]);
     rhs.push(ci);
   }
 
-  let ata00 = 0, ata01 = 0, ata11 = 0;
-  let atb0 = 0, atb1 = 0;
+  let ata00 = 0,
+    ata01 = 0,
+    ata11 = 0;
+  let atb0 = 0,
+    atb1 = 0;
+
   for (let i = 0; i < rows.length; i++) {
     const [a, b] = rows[i];
     const c = rhs[i];
@@ -58,25 +73,29 @@ export function solveMultilateration(points: Point[]): { x: number; y: number } 
   return { x: X, y: Y };
 }
 
-// path-loss conversion
+// -------------------------
+// 🔹 RSSI to distance
+// -------------------------
 export function rssiToDistance(rssi: number, A = -40, n = 3): number {
   // d = 10^((A - RSSI) / (10*n))
   return Math.pow(10, (A - rssi) / (10 * n));
 }
 
-// Example: you must maintain a map of known AP positions (BSSID -> {x,y})
+// -------------------------
+// 🔹 Known Access Point positions (example)
+// -------------------------
 const AP_POSITIONS: Record<string, { x: number; y: number }> = {
-  // fill with your measured coordinates (meters)
   // "00:11:22:33:44:55": { x: 0, y: 0 },
   // "66:77:88:99:AA:BB": { x: 5, y: 0 },
-  // ...
 };
 
+// -------------------------
+// 🔹 Wi-Fi scan and locate
+// -------------------------
 export async function scanAndLocate(): Promise<{ x: number; y: number } | null> {
   const res = await WifiPlugin.scanNetworks();
   const networks = res.networks;
 
-  // map visible APs to points with estimated distance
   const points = networks
     .map((n) => {
       const pos = AP_POSITIONS[n.BSSID];
@@ -87,10 +106,56 @@ export async function scanAndLocate(): Promise<{ x: number; y: number } | null> 
 
   if (points.length < 3) return null;
 
-  // choose either trilaterate3 for exactly 3 or solveMultilateration
   if (points.length === 3) {
     return trilaterate3(points[0], points[1], points[2]);
   } else {
     return solveMultilateration(points);
+  }
+}
+
+// -------------------------
+// 🔹 API base URL + helper functions
+// -------------------------
+const BASE_URL = import.meta.env.VITE_FETCH_URL;
+
+// ✅ Fetch all groups
+export async function fetchGroups() {
+  try {
+    const res = await fetch(`${BASE_URL}/groups`);
+    const data = await res.json();
+    console.log('Fetched groups:', data);
+    return data;
+  } catch (err) {
+    console.error('Error fetching groups:', err);
+    return [];
+  }
+}
+
+// ✅ Fetch all rooms
+export async function fetchRooms() {
+  try {
+    const res = await fetch(`${BASE_URL}/rooms`);
+    const data = await res.json();
+    console.log('Fetched rooms:', data);
+    return data;
+  } catch (err) {
+    console.error('Error fetching rooms:', err);
+    return [];
+  }
+}
+
+// ✅ Fetch roster for a group or room
+export async function fetchRoster(query: string, type: 'group' | 'room', date: string) {
+  try {
+    const url = `${BASE_URL}/roster?${type}=${encodeURIComponent(query)}&date=${date}`;
+    console.log('Fetching roster from:', url);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const data = await res.json();
+    console.log('Roster data:', data);
+    return data;
+  } catch (err) {
+    console.error('Error fetching roster:', err);
+    return null;
   }
 }
