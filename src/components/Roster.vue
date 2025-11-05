@@ -225,7 +225,7 @@ watch(selectedDate, (newDate) => {
       const start = formatDate(monday)
       const end = formatDate(friday)
       
-      const res = await fetch(`https://tradition-vault-save-transparent.trycloudflare.com/roster?group=${encodeURIComponent(headerData)}&start=${start}&end=${end}`)
+      const res = await fetch(`${import.meta.env.VITE_FETCH_URL}/roster?group=${encodeURIComponent(headerData)}&start=${start}&end=${end}`)
       const data = await res.json()
       json.value = data
       processed.value = processRawToMergedDays(data)
