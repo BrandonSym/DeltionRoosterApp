@@ -114,7 +114,7 @@ interface Lesson {
   endMin?:number
 }
 
-interface Day {
+export interface Day {
   date: string
   date_f: string
   date_ts: number

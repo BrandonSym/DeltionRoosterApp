@@ -3,11 +3,8 @@
     <header class="flex items-center justify-between bg-deltionBlue-500 border-b px-6 py-3">
       <!-- Logo -->
       <div class="flex items-center gap-2">
-        <img src="../assets/deltionnew.png" alt="Deltion Logo" class="h-13 w-auto" @click="goHome" />
+        <img src="../assets/deltionnew.png" alt="Deltion Logo" class="h-13 md:w-auto w-24" @click="goHome" />
       </div>
-
-
-
       <!-- zoekveld + calendar -->
       <div class="flex items-center gap-3 relative" id="calendar">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" @click.stop="toggleCalendar">
@@ -19,8 +16,9 @@
         </svg>
         <!-- Calendar dropdown -->
         <div v-if="calendarOpen"
-          class="absolute left-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
-          <VueDatePicker v-model="tempDate" :enable-time-picker="false" auto-apply :format="formatDate" inline
+          class="absolute left-1/2 top-10 -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
+          <VueDatePicker v-model="tempDate" :enable-time-picker="false" :time-picker="false"
+            :disable-time-range-validation="true" hide-time-header auto-apply :format="formatDate" inline
             @update:model-value="applyDate" />
         </div>
         <!-- Zoek dropdown met input in dropdown -->
@@ -50,10 +48,18 @@
 
       <!-- Settings knop + menu -->
       <div id="settings-menu" class="relative">
-        <button @click.stop="toggleMenu" class="px-3 py-1 border text-white rounded hover:bg-gray-300">
-          ⚙️
-        </button>
-
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 48 48" @click.stop="toggleMenu">
+          <defs>
+            <mask id="SVGO7QlTCPD">
+              <g fill="none" stroke-linejoin="round" stroke-width="4">
+                <path fill="#fff" stroke="#fff"
+                  d="M36.686 15.171a15.4 15.4 0 0 1 2.529 6.102H44v5.454h-4.785a15.4 15.4 0 0 1-2.529 6.102l3.385 3.385l-3.857 3.857l-3.385-3.385a15.4 15.4 0 0 1-6.102 2.529V44h-5.454v-4.785a15.4 15.4 0 0 1-6.102-2.529l-3.385 3.385l-3.857-3.857l3.385-3.385a15.4 15.4 0 0 1-2.529-6.102H4v-5.454h4.785a15.4 15.4 0 0 1 2.529-6.102l-3.385-3.385l3.857-3.857l3.385 3.385a15.4 15.4 0 0 1 6.102-2.529V4h5.454v4.785a15.4 15.4 0 0 1 6.102 2.529l3.385-3.385l3.857 3.857z" />
+                <path fill="#000" stroke="#000" d="M24 29a5 5 0 1 0 0-10a5 5 0 0 0 0 10Z" />
+              </g>
+            </mask>
+          </defs>
+          <path fill="#fff" d="M0 0h48v48H0z" mask="url(#SVGO7QlTCPD)" />
+        </svg>
         <!-- Dropdown menu -->
         <div v-if="menuOpen" class="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg">
           <ul class="py-1">
@@ -92,7 +98,7 @@ const tempDate = ref(selectedDate.value)
 async function fetchOptions() {
   try {
     const [groupsRes, roomsRes] = await Promise.all([
-      fetch(`${import.meta.env.VITE_FETCH_URL}groups`).then(r => r.json()),
+      fetch(`${import.meta.env.VITE_FETCH_URL}/groups`).then(r => r.json()),
       fetch(`${import.meta.env.VITE_FETCH_URL}/rooms`).then(r => r.json()),
     ]);
     let groupsArr = Array.isArray(groupsRes.data) ? groupsRes.data : [];
