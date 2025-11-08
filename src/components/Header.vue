@@ -17,9 +17,8 @@
         <!-- Calendar dropdown -->
         <div v-if="calendarOpen"
           class="absolute left-1/2 top-10 -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
-          <VueDatePicker v-model="tempDate" :enable-time-picker="false" :time-picker="false"
-            :disable-time-range-validation="true" hide-time-header auto-apply :format="formatDate" inline
-            @update:model-value="applyDate" />
+          <VueDatePicker v-model="tempDate" :enable-time-picker="false" :time-picker="false" :hide-input-icon="true"
+            :hide-clear-button="true" auto-apply :format="formatDate" inline @update:model-value="applyDate" :time-config="{ enableTimePicker: false }" />
         </div>
         <!-- Zoek dropdown met input in dropdown -->
         <div class="flex items-center gap-2 relative w-48 search-dropdown">
